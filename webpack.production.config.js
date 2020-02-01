@@ -4,26 +4,19 @@ const webpack = require('webpack')
 const glob = require('glob')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const PurgecssPlugin = require('purgecss-webpack-plugin')
+const TerserJSPlugin = require('terser-webpack-plugin')
+const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
-const WebpackShellPlugin = require('webpack-shell-plugin')
-require('babel-polyfill')
-const HardSourceWebpackPlugin = require('hard-source-webpack-plugin')
+const GitRevisionPlugin = require('git-revision-webpack-plugin')
+const gitRevisionPlugin = new GitRevisionPlugin()
+const uuidv4 = require('uuid/v4')
 
 const PATHS = {
   src: path.join(__dirname, 'client')
 }
 
 const config = {
-  devtool: 'cheap-module-eval-source-map',
-
-  entry: [
-    'babel-polyfill',
-    'react-hot-loader/patch',
-    'webpack-dev-server/client?http://localhost:3001',
-    'webpack/hot/only-dev-server',
-    './main.js',
-    './assets/scss/main.scss'
-  ],
+  entry: ['./main.js', './assets/scss/main.scss'],
   resolve: {
     alias: {
       d3: 'd3/index.js'
@@ -31,32 +24,17 @@ const config = {
   },
   output: {
     filename: 'js/bundle.js',
+    chunkFilename: 'js/[name].[contenthash].js',
     path: path.resolve(__dirname, 'dist/assets'),
     publicPath: ''
   },
-  mode: 'development',
+  mode: 'production',
   context: path.resolve(__dirname, 'client'),
-  devServer: {
-    hot: true,
-    contentBase: path.resolve(__dirname, 'dist/assets'),
-    watchContentBase: true,
-    host: 'localhost',
-    port: 3001,
-
-    historyApiFallback: true,
-    overlay: {
-      warnings: true,
-      errors: true
-    },
-    proxy: [
-      {
-        context: ['/api', '/auth', '/ws', '/js/variables.js', '/sockjs-node'],
-        target: 'http://localhost:3000',
-        secure: false,
-        changeOrigin: true,
-        ws: true
-      }
-    ]
+  devtool: false,
+  performance: {
+    hints: false,
+    maxEntrypointSize: 512000,
+    maxAssetSize: 512000
   },
   optimization: {
     splitChunks: {
@@ -68,7 +46,8 @@ const config = {
           enforce: true
         }
       }
-    }
+    },
+    minimizer: [new TerserJSPlugin({}), new OptimizeCSSAssetsPlugin({})]
   },
   module: {
     rules: [
@@ -80,20 +59,14 @@ const config = {
       },
       {
         test: /\.js$/,
-        include: path.resolve(__dirname, 'client'),
-        loaders: ['thread-loader', 'babel-loader'],
+        loaders: ['babel-loader'],
         exclude: /node_modules/
       },
       {
         test: /\.css$/,
         use: [
-          'thread-loader',
           {
-            loader: MiniCssExtractPlugin.loader,
-            options: {
-              publicPath: '../',
-              hmr: process.env.NODE_ENV === 'development'
-            }
+            loader: MiniCssExtractPlugin.loader
           },
           {
             loader: 'css-loader',
@@ -124,8 +97,7 @@ const config = {
           {
             loader: MiniCssExtractPlugin.loader,
             options: {
-              publicPath: '../',
-              hmr: process.env.NODE_ENV === 'development'
+              publicPath: '../'
             }
           },
           {
@@ -148,6 +120,19 @@ const config = {
             loader: 'sass-loader',
             query: {
               sourceMap: false
+            }
+          }
+        ]
+      },
+      {
+        test: /\.(png|jpg|gif)$/,
+        use: [
+          {
+            loader: 'url-loader',
+            options: {
+              limit: 100,
+              mimetype: 'image/png',
+              name: 'images/[name].[ext]'
             }
           }
         ]
@@ -184,7 +169,11 @@ const config = {
       },
       {
         test: /\.[ot]tf(\?v=\d+.\d+.\d+)?$/,
-        use: 'file-loader'
+        use: [
+          {
+            loader: 'file-loader'
+          }
+        ]
       },
       {
         test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
@@ -218,21 +207,23 @@ const config = {
     }),
     new CopyWebpackPlugin([{ from: 'assets/images', to: 'images' }]),
     new CopyWebpackPlugin([{ from: 'assets/fonts', to: 'fonts' }]),
-    new CopyWebpackPlugin([{ from: 'index.html', to: 'index.html' }]),
 
     new CopyWebpackPlugin([{ from: 'vendors', to: 'vendors' }]),
     new CopyWebpackPlugin([{ from: 'assets/manifest.json', to: 'manifest.json' }]),
     new CopyWebpackPlugin([{ from: 'assets/robots.txt', to: 'robots.txt' }]),
 
-    new WebpackShellPlugin({ onBuildStart: ['npm run watch:server'] }),
-
+    new CopyWebpackPlugin([
+      {
+        from: 'html.js',
+        to: '../html.js',
+        transform: (content) => {
+          return content.toString().replace(/COMMITHASH/g, uuidv4())
+        }
+      }
+    ]),
     new webpack.EnvironmentPlugin({
-      NODE_ENV: 'development'
-    }),
-
-    new HardSourceWebpackPlugin(),
-
-    new webpack.HotModuleReplacementPlugin()
+      NODE_ENV: 'production'
+    })
   ]
 }
 

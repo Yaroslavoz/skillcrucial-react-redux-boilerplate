@@ -1,30 +1,27 @@
-import 'core-js';
-import 'raf/polyfill';
-import 'babel-polyfill';
-import React from 'react';
-import ReactDOM from 'react-dom';
-import { AppContainer } from 'react-hot-loader';
-import Root from './config/root';
-
-require('es6-promise').polyfill()
-require('isomorphic-fetch')
+import 'core-js'
+import 'raf/polyfill'
+import 'babel-polyfill'
+import React from 'react'
+import ReactDOM from 'react-dom'
+import { AppContainer } from 'react-hot-loader'
+import Root from './config/root'
 
 const target = document.getElementById('root')
 
 const render = (Component) => {
-  (module.hot ? ReactDOM.render : ReactDOM.hydrate)(
+  ;(module.hot ? ReactDOM.render : ReactDOM.hydrate)(
     <AppContainer>
       <Component />
     </AppContainer>,
     target
-  );
-};
+  )
+}
 
-render(Root);
+render(Root)
 
 if (module.hot) {
   module.hot.accept('./config/root', () => {
-    const newApp = require('./config/root').default;
-    render(newApp);
-  });
+    const newApp = require('./config/root').default
+    render(newApp)
+  })
 }
